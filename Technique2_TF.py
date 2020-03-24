@@ -34,11 +34,11 @@ def makeY(data, n, m):
     pos = set(list(np.nonzero(data[:, -1])[0]))
     neg = list(all_ - pos)
     Y_coords = {0:data[neg, :4], 1:data[list(pos), :4]}
-    item_popularity = np.zeros(m)
+    item_popularity = {i:set([]) for i in range(m)}
     Y_tele = dict()
 #    user_likes = {str(i):dict() for i in range(n)}
     for [i, j, k, l, r] in data:
-        item_popularity[i] += 1
+        item_popularity[j].add(i)
         if r==1:
 #            if str(k) in user_likes[str(i)]:
 #                if str(l) in user_likes[str(i)][str(k)]:
@@ -62,7 +62,9 @@ def makeY(data, n, m):
 #        for k, uik in ui.items():
 #            for l, uikl in uik.items():
 #                user_likes[str(i)][str(k)][str(l)] = [str(j) for j in uikl]
-    return Y_tele, Y_coords, item_popularity, len(pos), len(neg)
+    item_pop = np.zeros(m)
+    for j in range(m): item_pop[j] = len(item_popularity[j])/n
+    return Y_tele, Y_coords, item_pop, len(pos), len(neg)
 
 
 class TF:
@@ -186,7 +188,7 @@ class TF:
         self.n_te = {0: len(self.test_idxs[0]), 1:len(self.test_idxs[1])}
     
     def train(self):
-        train_idxs, test_idxs, n_tr, n_te = self.tr_te_split()
+        self.tr_te_split()
         
         #alpha = 0.005
         print_time = 1000
@@ -196,7 +198,7 @@ class TF:
             alpha = min(1, int(5e4)/t)
             # select i, j, k
             choice, tot = (1, self.n_pos) if np.random.random() < 0.2 else (0, self.n_neg) # do positive example:
-            indices = self.Y_coords[choice][train_idxs[choice][np.random.randint(n_tr[choice])]]
+            indices = self.Y_coords[choice][self.train_idxs[choice][np.random.randint(self.n_tr[choice])]]
             [i, j], c_idxs = indices[:2], list(indices[2:])
             
 #            Y_ijk = self.y(i, j, c_idxs[::])
@@ -256,6 +258,8 @@ class TF:
         if newUser:
             # add the user...
             self.U = np.vstack((self.U, self.mtx(1, self.du)))
+            self.n = self.U.shape[0]
+            self.save()
             p_pop = self.item_popularity / sum(self.item_popularity)
 #            self.user_likes[str(user)] = {str(context[0]):{str(context[1]):[]}}
             p_unpop = 1 - p_pop
@@ -265,11 +269,13 @@ class TF:
             return [(p, 'users in similar contexts liked this', 'R') for p in pop]+[(p, 'this song hasn\'t got many ratings', 'N') for p in novel]
         
         un_obs_items = list(set(list(range(self.m))) - set(obs_items))
-        selection = np.random.choice(obs_items, min(10, len(obs_items)), replace=False)
-        base_Y = np.append(un_obs_items, selection)
+        base_Y, selection = np.array(un_obs_items), []
+        if len(obs_items) > 0:
+            selection = np.random.choice(obs_items, min(10, len(obs_items)), replace=False)
+            base_Y = np.append(base_Y, selection)
         ''' quality is a function of user-context-item '''
         print('Producing data for DPP...')
-        quality = np.array([self.F(user, j, context) * self.item_popularity[j] for j in base_Y])
+        quality = np.array([self.F(user, j, context) + self.item_popularity[j] for j in base_Y])
         mask = quality > 0# remove any with q < 0
         quality = quality[mask]
         ''' quality is a function of the latent space of items '''
@@ -282,10 +288,10 @@ class TF:
         print("Done.")
         for i in range(len(selected_items)):
             if selected_items[i] in selection:
-                selected_items[i] = (selected_items[i], "we thought you might like to listen to this again", "L")
+                selected_items[i] = (selected_items[i], "we thought you might like to listen\nto this again", "L")
             else:
                 selected_items[i] = (selected_items[i], "we think you'll like this based on\nyou're previous likes and context", "L")
         return selected_items
 
-#rs = TF()
-#print(rs.recommend())
+#rs = TF(train=True)
+#rs.train()

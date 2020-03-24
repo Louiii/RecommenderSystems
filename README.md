@@ -1,5 +1,4 @@
-# Recommender Systems Coursework
-## Context-aware song recommender systems
+# Context-Aware Recommender Systems Coursework
 
 ## Hierarchy
 ```
@@ -25,7 +24,7 @@
 └── WriteFinalDataSet.py // the file I used to create the final dataset
 ```
 
-## Installation
+## Required Packages
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the following packages.
 - numpy
 - matplotlib

@@ -1,12 +1,31 @@
 import PySimpleGUIQt as sg
 import json
-from Technique1_MF import MF
+from Technique1_SVD import SVD
 from Technique2_TF import TF
+
+while True:
+    ans = input("Which colour scheme would you like? (1 = Brown/Yellow, 2 = White/Blue)\n")
+    if ans=='1':
+        sg.theme('DarkAmber') 
+        break
+    if ans=='2':
+        break
+    print('Please enter 1 or 2.')
+
+while True:
+    ans = input("Would you like normal font size or large? (1 = Normal, 2 = Large)\n")
+    if ans=='1':
+        fontSize = 14
+        break
+    if ans=='2':
+        fontSize = 17
+        break
+    print('Please enter 1 or 2.')
 
 while True:
     ans = input("Which recommender system would you like to use?\n(1 = Post Filtering, Matrix Factorisation,\n 2 = Contextual Modelling, Tensor Factorisation)\n")
     if ans=='1':
-        rs = MF()
+        rs = SVD()
         break
     if ans=='2':
         rs = TF()
@@ -14,15 +33,13 @@ while True:
     print('Please enter 1 or 2.')
 
 
-num_of_users = rs.n
+num_of_users = rs.U.shape[0]
 num_of_items = rs.m
 items = {"Song "+str(i):i for i in range(num_of_items)}
 
 with open("GUI_database/users.json", 'r') as f:
     users = json.load(f)
 
-sg.theme('DarkAmber') 
-fontSize = 15
 
 
 mnths_tx = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Nov', 'Dec')
@@ -48,24 +65,25 @@ def update_rec_window(n=10):
         window['dlkBtn'+str(i)].update(visible=False)
         window['ex'+str(i)].update(visible=False)
 
+fs_ = 10 if fontSize==14 else 12
 recommendations_window = [[sg.Txt('', size=(20,0.6), key='r'+str(i)), 
-                        sg.Button('like', size=(8,1), pad=(10,2), font=("Helvetica", 12), key='lkBtn'+str(i)),
-                        sg.Button('dislike', size=(8,1), pad=(10,2), font=("Helvetica", 12), key='dlkBtn'+str(i)),
-                        sg.Txt('', size=(20,0.6), key='ex'+str(i))] for i in range(10)]
+                        sg.Button('like', size=(8,1), pad=(10,2), font=("Helvetica", 13), key='lkBtn'+str(i)),
+                        sg.Button('dislike', size=(8,1), pad=(10,2), font=("Helvetica", 13), key='dlkBtn'+str(i)),
+                        sg.Txt('', size=(23,0.8), font=("Helvetica", fs_), key='ex'+str(i))] for i in range(10)]
 
 layout = [
-            [sg.Text('Type username:', key='usr_tx'), sg.Text('', key='_OUTPUT_'), 
+            [sg.Text('Type username:', key='usr_tx', size=(14,1), pad=(16,2)), sg.Text('', key='_OUTPUT_'), 
                 sg.Input(do_not_clear=True, pad=(15,2), key='_IN_'), 
                 sg.Button('Enter', size=(12,1), pad=(16,2), font=("Helvetica", 12), key='etr_btn')],
-            [sg.Txt('Location (Time-Zone)', size=(15,1), pad=(15,2), key='loc_tz'), 
+            [sg.Txt('Location (Time-Zone)', size=(17,1), pad=(17,2), key='loc_tz'), 
                 sg.Drop(locs_str, font=("Helvetica", 14), size=(8,1), pad=(12,1), key='loca'), 
-                sg.Txt('     Time (Month)', size=(12,1), pad=(12,2), key='time_tx'), 
+                sg.Txt('     Time (Month)', size=(13,1), pad=(13,2), key='time_tx'), 
                 sg.Drop(mnths_tx, size=(8,1), font=("Helvetica", 12), pad=(12,1), key='mnth'), sg.Stretch()],
             [sg.Text('', key='name', size=(18,1), pad=(12,2), visible=False)],
-            [sg.Button('Generate\nrecommendations', size=(20,1.5), pad=(20,3), key='gre', font=("Helvetica", 12), visible=False), sg.Button('Exit', size=(20,1.5), pad=(20,3), key='ext', font=("Helvetica", 12), visible=False)],
+            [sg.Button('Generate\nrecommendations', size=(20,1.5), pad=(20,3), key='gre', font=("Helvetica", 14), visible=False), sg.Button('Exit', size=(20,1.5), pad=(20,3), key='ext', font=("Helvetica", 14), visible=False)],
             [sg.Txt(descr, size=(36,3), pad=(38,4), font="Helvetica 12", key='desc')],
             [sg.Column(recommendations_window, key='list', visible=False)],
-            [sg.Button('Submit preferences', font=("Helvetica", 12), key='submit', size=(40,1.5), pad=(60,2), visible=False)],
+            [sg.Button('Submit preferences', font=("Helvetica", 14), key='submit', size=(40,1.5), pad=(60,2), visible=False)],
 
             [sg.Column(col, key='COL', visible=False)],
           ]

@@ -57,7 +57,7 @@ def makeY(data, n, m, n_contexts=2):
     Y_tele = dict()
     
     c1, c2 = set([]), set([])
-    item_popularity = np.zeros(m)
+    item_popularity = {i:set([]) for i in range(m)}
     user_likes = {str(i):dict() for i in range(n)}
     contexts_av_rating = {'0':{str(i):dict() for i in range(24)}, '1':{str(i):dict() for i in range(12)}}
     for [i, j, k, l, r] in data:
@@ -76,7 +76,7 @@ def makeY(data, n, m, n_contexts=2):
             else:
                 Y_tele[i] = set([j])
         # also compute item popularity (number of ratings)
-        item_popularity[i] += 1
+        item_popularity[j].add(i)
         if str(j) in contexts_av_rating['0'][str(k)]:
             tp = contexts_av_rating['0'][str(k)][str(j)]
             contexts_av_rating['0'][str(k)][str(j)] = (tp[0]+r, tp[1]+1)
@@ -97,8 +97,10 @@ def makeY(data, n, m, n_contexts=2):
     for i, ui in user_likes.items():
         for k, uik in ui.items():
             for l, uikl in uik.items():
-                user_likes[str(i)][str(k)][str(l)] = [str(j) for j in uikl]
-    return Y_tele, Y_coords, contexts_av_rating, item_popularity, user_likes, len(pos), len(neg)
+                user_likes[str(i)][str(k)][str(l)] = [str(j) for j in uikl]  
+    item_pop = np.zeros(m)
+    for j in range(m): item_pop[j] = len(item_popularity[j])/n
+    return Y_tele, Y_coords, contexts_av_rating, item_pop, user_likes, len(pos), len(neg)
 
 class SVD:
     def __init__(self, train=False):
@@ -291,7 +293,7 @@ class SVD:
               (3) prepare some unpopular (novel) recommendations 
         compose final list based of n from (1), (2), (3).
         '''
-        print('#########'+str(context)+'#########')
+#        print('#########'+str(context)+'#########')
         c1, c2 = str(context[0]), str(context[1])
         c1_pop, c2_pop = self.contexts_av_rating['0'][c1], self.contexts_av_rating['1'][c2]
         item_pop_dep_c = dict()
@@ -303,11 +305,23 @@ class SVD:
 
         un_obs_items = list(set(list(range(self.m))) - set(obs_items))
         
+        l_uo = len(un_obs_items)
+        if l_uo <= 10:# if we've shown all the items!
+            already_liked = self.user_fav_by_context(str(user), c1, c2)
+            already_liked = [(int(a), 'you liked this in this context', 'L') for a in already_liked][:min(10, len(already_liked))]
+            if len(already_liked)<3:
+                da = self.find_items_u(user, context, 10-len(already_liked))
+                da = [(a, 'you liked this', 'L') for a in da]
+                already_liked += da
+            return already_liked[:10-l_uo]+[(un_obs_items[i], 'this song hasn\'t got many ratings', 'N') for i in range(l_uo)]
+        
         if newUser:
             # add the user...
             self.U = np.vstack((self.U, self.mtx(1, self.du)))
+            self.n = self.U.shape[0]
             self.bu = np.append(self.bu, 0)
             self.user_likes[str(user)] = {c1:{c2:[]}}
+            self.save()
             # select the most popular items in that context.
             item_pop_dep_c = [(k, v) for k, v in item_pop_dep_c.items()]
             item_pop_dep_c = sorted(item_pop_dep_c, key=lambda x:-x[1])[:10]
@@ -331,13 +345,13 @@ class SVD:
         # select some novel items.
         un_obs_items = [i for i in un_obs_items if i not in ranks]
         ui_pop = np.array([1/(1+self.item_popularity[i]) for i in un_obs_items])
-        novel = np.random.choice(un_obs_items, 10, p=ui_pop/sum(ui_pop), replace=False)
+        novel = np.random.choice(un_obs_items, min(10, len(un_obs_items)), p=ui_pop/sum(ui_pop), replace=False)
         novel = [(n, 'this song hasn\'t got many ratings', 'N') for n in novel]
         ranks = [(r, 'similar users in similar contexts liked this', 'R') for r in ranks]
         
         # prepare songs that the user has already liked in that context,
         already_liked = self.user_fav_by_context(str(user), c1, c2)
-        already_liked = [(a, 'you liked this in this context', 'L') for a in already_liked]
+        already_liked = [(int(a), 'you liked this in this context', 'L') for a in already_liked]
         if len(already_liked)<3:
             # if none: some they have liked at all, (first search most similar contexts)
             da = self.find_items_u(user, context, 3)
@@ -366,6 +380,7 @@ class SVD:
         if n_br in [1, 2]: return ranks[:1] + already_liked[:3] + novel[:1]
         return ranks[:3] + already_liked[:6] + novel[:1]
 #rs = SVD(train=True)
+#rs.save_pred()
 #rs.train()
             
 #rs = SVD()
